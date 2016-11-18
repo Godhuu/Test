@@ -1,0 +1,558 @@
+local flag=redis.call('GET',KEYS[1])ARGV
+if (flag=="end") then 
+--库存售罄
+return 0
+else
+--尚有库存
+redis.call('LPUSH',KEYS[2],ARGV[1])
+return 1
+end
+
+
+"local user=redis.call('RPOPLPUSH','list1','list2') if(user) then return 1 else return 0 end"
+
+
+
+
+
+
+<<<<<<<<<<<<<server<<<<<<<<<<<<<<<<<<<<<<<<<<<
+   class Program
+    {
+        
+       /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="args"></param>
+        static void Main(string[] args)
+        {
+            Console.Title = "Redis发布、订阅服务";
+
+             var redisManager = new PooledRedisClientManager();
+            var client = redisManager.GetClient();
+            var str1 = @"local inventory=redis.call('GET',KEYS[1])
+inventory=tonumber(inventory) and tonumber(inventory) or 0
+if (inventory<=0) then 
+--库存已售罄
+redis.call('SET',KEYS[4],'end')
+return {inventory,0,0}
+else
+--尚有库存
+local user=redis.call('RPOPLPUSH',KEYS[2],KEYS[3])
+if (user) then
+--队列中有数据
+inventory=redis.call('DECR',KEYS[1])
+redis.call('SET','flag',user)
+return {inventory, 1 ,'tmd'}
+else
+--队列为空
+local listIsNull='true'
+return {inventory, listIsNull ,2}
+end
+end ";
+            var takeOneSha1 = client.CalculateSha1(str1);
+            if (!client.HasLuaScript(takeOneSha1))
+            {
+                takeOneSha1 = client.LoadLuaScript(str1);
+            }
+            var keys = new string[] { "re", "list1", "list2", "reInfo" };
+            while (true)
+            {
+                //client.CreateTransaction();
+                // client.ExecLua("");
+                //client.CachedLuaSha1Map
+                var result = client.ExecLuaShaAsList(takeOneSha1, keys, null);
+                if (Convert.ToInt32(result[0]) <= 0)//结束
+                {
+                    client.PublishMessage("reInfo-Chanle", "game over");
+                    Console.WriteLine("售罄！！");
+                    //client.Set<string>("reInfo", "end");
+                }
+                else if (result[1] == "true") //队列空，静待1s
+                {
+                    //Thread.Sleep(1000);
+                    Console.WriteLine("队列为空：");
+                }
+                else
+                {
+                    Console.WriteLine("此人已成功下单。---"+str1[2]);
+                }
+                //Console.ReadLine();
+            }
+       
+    
+            ////new RedisClient().Set<int>("test", 1);
+            //new RedisClient().Incr("test");
+            //var tt = new RedisClient().Get<string>("test");
+           
+            //Console.WriteLine(tt);
+            //Console.ReadLine();
+           ////发布服务
+           //Pub();
+           //Console.ReadLine();
+           //Console.ReadLine();
+           //IRedisClientsManager redisManager=new PooledRedisClientManager();
+           //var client = redisManager.GetClient();
+           //client.PublishMessage("testChannel", "game over");
+           //var t = client.DecrementValue("kk");
+           // Console.WriteLine(t);
+            //for (var i = 0; i < 10000; i++)
+            //{
+            //    Task.Factory.StartNew(() =>
+            //    {
+            //        var client = redisManager.GetClient();
+            //        var tt = client.RemoveEndFromList("testlist");
+            //        if (string.IsNullOrWhiteSpace(tt))
+            //        {
+            //            Console.WriteLine("队列空，等待十秒钟。当前时间：" + DateTime.Now);
+            //            Thread.Sleep(10000);
+            //        }
+
+            //        else
+            //        {
+            //            Console.WriteLine("test的值是：" + tt);
+            //        }
+            //        //using (client.AcquireLock("dd",new TimeSpan(0,0,100)))
+            //        //{
+            //        //    //var tdd= client.AcquireLock("dd");
+            //        //    var tt = client.RemoveEndFromList("testlist");
+            //        //    if (string.IsNullOrWhiteSpace(tt))
+            //        //    {
+            //        //        Console.WriteLine("队列空，等待十秒钟。当前时间：" + DateTime.Now);
+            //        //        Thread.Sleep(10000);
+            //        //    }
+
+            //        //    else
+            //        //    {
+            //        //        Console.WriteLine("test的值是：" + tt);
+            //        //    }
+            //        //    // = client.Get<int>("test");
+            //        //   // client.Set<int>("test", ++tt);
+            //        //    //tt = client.Get<int>("test");
+                       
+            //        //    //tdd.Dispose();
+            //        //}
+            //    });
+
+            //}
+           //Console.ReadLine();
+           // //订阅
+           // Subscription();
+
+           //
+        }
+ 
+        #region 发布/订阅·
+        /// 发布
+        /// </summary>
+     
+ 
+ 
+        /// <summary>
+        /// 发送消息
+        /// </summary>
+        public static Task Send()
+        {
+            return Task.Run(() =>
+            {
+                RedisClient client = new RedisClient("127.0.0.1", 6379);
+                client.PublishMessage("channel-1", "这是我发送的消息！");
+            });
+        }
+ 
+        /// <summary>
+        /// 订阅
+        /// </summary>
+        public static void Subscription()
+        {
+            using (ServiceStack.Redis.RedisClient consumer = new RedisClient("127.0.0.1", 6379))
+            {
+                //创建订阅
+                ServiceStack.Redis.IRedisSubscription subscription = consumer.CreateSubscription();
+ 
+                //接收消息处理Action
+                subscription.OnMessage = (channel, msg) =>
+                {
+                    Console.WriteLine("频道【" + channel + "】订阅客户端接收消息：" + ":" + msg + "         [" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "]");
+                    Console.WriteLine("订阅数：" + subscription.SubscriptionCount);
+                    Console.WriteLine("___________________________________________________________________");
+ 
+                };
+                //consumer.Incr()
+                 //订阅事件处理
+                subscription.OnSubscribe = (channel) =>
+                {
+                    Console.WriteLine("订阅客户端：开始订阅" + channel);
+                };
+ 
+                //取消订阅事件处理
+                subscription.OnUnSubscribe = (a) => { Console.WriteLine("订阅客户端：取消订阅"); };
+ 
+                //模拟：发送100条消息给服务
+                Task.Run(() =>
+                {
+                    using (ServiceStack.Redis.IRedisClient publisher = new ServiceStack.Redis.RedisClient("127.0.0.1", 6379))
+                    {
+                        for (int i = 1; i <= 100; i++)
+                        {
+                            publisher.PublishMessage("channel-1", string.Format("这是我发送的第{0}消息!", i));
+                            System.Threading.Thread.Sleep(200);
+                        }
+                    }
+                    subscription.UnSubscribeFromAllChannels();
+                });
+ 
+                //订阅频道
+                subscription.SubscribeToChannels("channel-1");
+            }
+ 
+        }
+ 
+ 
+        #endregion
+ 
+        /// <summary>
+        /// Example
+        /// </summary>
+        public static void Example()
+        {
+            var messagesReceived = 0;
+            var PublishMessageCount = 10;
+            string MessagePrefix = "LCQ:", ChannelName = "channel-4";
+            using (var redisConsumer = new RedisClient("127.0.0.1", 6379))
+            using (var subscription = redisConsumer.CreateSubscription())
+            {
+                //订阅
+                subscription.OnSubscribe = channel =>
+                {
+                    Console.WriteLine("订阅频道'{0}'", channel);
+                    Console.WriteLine();
+                };
+                //取消订阅
+                subscription.OnUnSubscribe = channel =>
+                {
+                    Console.WriteLine("取消订阅 '{0}'", channel);
+                    Console.WriteLine();
+                };
+ 
+                //接收消息
+                subscription.OnMessage = (channel, msg) =>
+                {
+                    Console.WriteLine("接收消息 '{0}' from channel '{1}'", msg, channel);
+                    Console.WriteLine();
+                    //As soon as we've received all 5 messages, disconnect by unsubscribing to all channels
+                    if (++messagesReceived == PublishMessageCount)
+                    {
+                        subscription.UnSubscribeFromAllChannels();
+                    }
+                };
+ 
+                ThreadPool.QueueUserWorkItem(x =>
+                {
+                    Thread.Sleep(200);
+                    Console.WriteLine("开始发送消息...");
+ 
+                    using (var redisPublisher = new RedisClient("127.0.0.1", 6379))
+                    {
+                        for (var i = 1; i <= PublishMessageCount; i++)
+                        {
+                            var message = MessagePrefix + i;
+                            Console.WriteLine("正在发布消息 '{0}' 到频道 '{1}'", message, ChannelName);
+                            Console.WriteLine();
+                            redisPublisher.PublishMessage(ChannelName, message);
+                        }
+                    }
+                });
+ 
+                Console.WriteLine("开始启动监听 '{0}'", ChannelName);
+                subscription.SubscribeToChannels(ChannelName); //blocking
+            }
+ 
+            Console.WriteLine("EOF");
+        }
+    }
+
+
+
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<client<<<<<<<<<<<<<<<<<<<<<<
+
+
+
+  class Program
+    {
+        private readonly static Random ra = new Random();
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="args"></param>
+        static void Main(string[] args)
+        {
+            Console.Title = "Redis发布、订阅服务";
+
+            //发布服务
+            //Pub();
+            //Console.ReadLine();
+
+
+            //订阅
+            //Subscription();
+
+            //RedisClient client = new RedisClient("127.0.0.1", 6379);
+            //while (true)
+            //{
+            //    string input = Console.ReadLine();
+            //    client.PublishMessage("channel-1", input);
+            //}
+
+           // Console.ReadLine();
+            Stopwatch sw = new Stopwatch();
+            var task =new Task[1000];
+            var str1 = @"local flag=redis.call('GET',KEYS[1])
+if (flag=='end') then 
+--库存售罄
+return 0
+else
+--尚有库存
+redis.call('LPUSH',KEYS[2],ARGV[1])
+return 1
+end ";
+           
+          
+            sw.Start();
+
+            var mana = new PooledRedisClientManager();
+            for (var i = 0; i < 1000; i++)
+            {
+                task[i] = Task.Factory.StartNew(() =>
+                  {
+                      using (var client = mana.GetClient())
+                      {
+                          var putOneSha1 = client.CalculateSha1(str1);
+                          if (!client.HasLuaScript(putOneSha1))
+                          {
+                              putOneSha1 = client.LoadLuaScript(str1);
+                          }
+                         
+                          //client.RemoveAllLuaScripts();
+
+                          string[] keys = new[] { "reInfo", "list1" };
+                          string[] argss = new[] {"ceshi"+sw.ElapsedMilliseconds};
+                          //var sha = client.LoadLuaScript(str1);
+                          var str = client.ExecLuaShaAsInt(putOneSha1, keys, argss);
+                          if (str == 1)
+                          {
+                              Console.WriteLine("排队中...");
+                          }
+                          else
+                          {
+                              Console.WriteLine("已抢空！");
+                          }
+                          
+                          //for (var d = 0; d < 100; d++)
+                          //{
+                          //    var tt = client.IncrementValue("kk");
+                          //    Console.WriteLine(tt);
+                          //}
+
+                      }
+                     
+                      //var user = new User();
+                      //var reNum = client.Get<long>("resource");
+                      // Console.WriteLine(reNum);
+
+                      //if (reNum < 0)
+                      //{
+                      //    Console.WriteLine("用户:" + user.userId + "   sorry，已经结束！");
+                      //}
+                      //else
+                      //{
+                      //    reNum = client.DecrementValue("resource");
+                      //    if (reNum <= 0)
+                      //    {
+                      //        Console.WriteLine("用户:" + user.userId + "   sorry，已经结束！");
+                      //    }
+                      //    else
+                      //    {
+                      //        client.PrependItemToList("testlist", JsonConvert.SerializeObject(user));
+                      //        Console.WriteLine("test的值是：" + user.userId);
+                      //    }
+                      //}
+
+
+                      //if (reNum > 0)
+                      //{
+                      //    using (client.AcquireLock("dd", new TimeSpan(0, 0, 60)))
+                      //    {
+                      //        reNum = client.Get<long>("resource");
+                      //        if (reNum <= 0)
+                      //        {
+                      //            Console.WriteLine("用户:" + user.userId + "   sorry，已经结束！");
+                      //        }
+                      //        else
+                      //        {
+                      //            client.DecrementValue("resource");
+                      //            client.PrependItemToList("testlist", JsonConvert.SerializeObject(user));
+                      //            Console.WriteLine("test的值是：" + user.userId);
+                      //        }
+                      //        //var tdd= client.AcquireLock("dd");
+                      //        //var tt = client.IncrementValue("test");
+                      //        //var tt = client.Get<string>("test");
+                      //        //client.Set<int>("test", ++tt);
+                      //        //tt = client.Get<int>("test");
+                      //        //client.PrependItemToList("testlist", tt.ToString());
+                      //        //Console.WriteLine("test的值是：" + tt);
+                      //        //tdd.Dispose();
+                      //    }
+                      //}
+                      //else
+                      //{
+                      //    Console.WriteLine("用户:" + user.userId + "   sorry，已经结束！");
+                      //}
+                  });
+
+            }
+            Task.WaitAll(task);
+            sw.Stop();
+            Console.WriteLine("时间："+sw.ElapsedMilliseconds+" ms");
+            Console.ReadLine();
+        }
+        public class User
+        {
+            public int userId
+            {
+                get { return ra.Next(100000); }
+                set { value = userId; }
+
+            }
+        }
+
+        #region 发布/订阅·
+        /// 发布
+        /// </summary>
+
+
+
+        /// <summary>
+        /// 发送消息
+        /// </summary>
+        public static Task Send()
+        {
+            return Task.Run(() =>
+            {
+                RedisClient client = new RedisClient("127.0.0.1", 6379);
+                client.PublishMessage("channel-1", "这是我发送的消息！");
+            });
+        }
+
+        /// <summary>
+        /// 订阅
+        /// </summary>
+        public static void Subscription()
+        {
+            using (ServiceStack.Redis.RedisClient consumer = new RedisClient("127.0.0.1", 6379))
+            {
+                //创建订阅
+                ServiceStack.Redis.IRedisSubscription subscription = consumer.CreateSubscription();
+
+                //接收消息处理Action
+                subscription.OnMessage = (channel, msg) =>
+                {
+                    Console.WriteLine("频道【" + channel + "】订阅客户端接收消息：" + ":" + msg + "         [" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "]");
+                    Console.WriteLine("订阅数：" + subscription.SubscriptionCount);
+                    Console.WriteLine("___________________________________________________________________");
+
+                };
+
+                //订阅事件处理
+                subscription.OnSubscribe = (channel) =>
+                {
+                    Console.WriteLine("订阅客户端：开始订阅" + channel);
+                };
+
+                //取消订阅事件处理
+                subscription.OnUnSubscribe = (a) => { Console.WriteLine("订阅客户端：取消订阅"); };
+
+                //模拟：发送100条消息给服务
+                Task.Run(() =>
+                {
+                    using (ServiceStack.Redis.IRedisClient publisher = new ServiceStack.Redis.RedisClient("127.0.0.1", 6379))
+                    {
+                        for (int i = 1; i <= 100; i++)
+                        {
+                            publisher.PublishMessage("channel-1", string.Format("这是我发送的第{0}消息!", i));
+                            System.Threading.Thread.Sleep(200);
+                        }
+                    }
+                    subscription.UnSubscribeFromAllChannels();
+                });
+
+                //订阅频道
+                subscription.SubscribeToChannels("channel-1");
+            }
+
+        }
+
+
+        #endregion
+
+        /// <summary>
+        /// Example
+        /// </summary>
+        public static void Example()
+        {
+            var messagesReceived = 0;
+            var PublishMessageCount = 10;
+            string MessagePrefix = "LCQ:", ChannelName = "channel-4";
+            using (var redisConsumer = new RedisClient("127.0.0.1", 6379))
+            using (var subscription = redisConsumer.CreateSubscription())
+            {
+                //订阅
+                subscription.OnSubscribe = channel =>
+                {
+                    Console.WriteLine("订阅频道'{0}'", channel);
+                    Console.WriteLine();
+                };
+                //取消订阅
+                subscription.OnUnSubscribe = channel =>
+                {
+                    Console.WriteLine("取消订阅 '{0}'", channel);
+                    Console.WriteLine();
+                };
+
+                //接收消息
+                subscription.OnMessage = (channel, msg) =>
+                {
+                    Console.WriteLine("接收消息 '{0}' from channel '{1}'", msg, channel);
+                    Console.WriteLine();
+                    //As soon as we've received all 5 messages, disconnect by unsubscribing to all channels
+                    if (++messagesReceived == PublishMessageCount)
+                    {
+                        subscription.UnSubscribeFromAllChannels();
+                    }
+                };
+
+                ThreadPool.QueueUserWorkItem(x =>
+                {
+                    Thread.Sleep(200);
+                    Console.WriteLine("开始发送消息...");
+
+                    using (var redisPublisher = new RedisClient("127.0.0.1", 6379))
+                    {
+                        for (var i = 1; i <= PublishMessageCount; i++)
+                        {
+                            var message = MessagePrefix + i;
+                            Console.WriteLine("正在发布消息 '{0}' 到频道 '{1}'", message, ChannelName);
+                            Console.WriteLine();
+                            redisPublisher.PublishMessage(ChannelName, message);
+                        }
+                    }
+                });
+
+                Console.WriteLine("开始启动监听 '{0}'", ChannelName);
+                subscription.SubscribeToChannels(ChannelName); //blocking
+            }
+
+            Console.WriteLine("EOF");
+        }
+    }
