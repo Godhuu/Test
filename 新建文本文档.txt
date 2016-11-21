@@ -556,3 +556,8 @@ end ";
             Console.WriteLine("EOF");
         }
     }
+¡¶¡·¡¶¡·¡¶¡·¡¶¡·¡¶¡·¡¶¡·¡¶¡·¡¶¡·¡¶¡·¡¶¡·¡¶¡·¡¶¡·
+
+Install-Package EntityFramework  
+
+Install-Package Microsoft.AspNet.OData -Version 5.9.0
